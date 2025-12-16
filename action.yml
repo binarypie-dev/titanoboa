@@ -10,6 +10,10 @@ inputs:
     description: Install livesys helpers on the rootfs for the ISO
     required: false
     default: "true"
+  livesys-repo:
+    description: COPR repository for livesys-scripts (e.g., binarypie/hypercube for Hyprland support)
+    required: false
+    default: ""
   compression:
     description: Which type of compression will the ISO will use (erofs (default), or squashfs (smaller sizes, slower read))
     required: false
@@ -67,6 +71,7 @@ runs:
         COMPRESSION: ${{ inputs.compression }}
         IMAGE_REF: ${{ inputs.image-ref }}
         LIVESYS: ${{ inputs.livesys }}
+        LIVESYS_REPO: ${{ inputs.livesys-repo }}
         ACTION_PATH: ${{ github.action_path }}
         FLATPAKS_LIST: ${{ inputs.flatpaks-list }}
         ADD_POLKIT: ${{ inputs.add-polkit }}
@@ -92,7 +97,7 @@ runs:
           HOOK_pre_initramfs="${HOOK_PRE_INITRAMFS}" \
           TITANOBOA_BUILDER_DISTRO="${TITANOBOA_BUILDER_DISTRO}" \
           $just build \
-          "${IMAGE_REF}" "${USE_LIVESYS}" "${FLATPAKS_LIST}" "${COMPRESSION}" "${EXTRA_KARGS}" "${CONTAINER_IMAGE}" "${ADD_POLKIT}"
+          "${IMAGE_REF}" "${USE_LIVESYS}" "${FLATPAKS_LIST}" "${COMPRESSION}" "${EXTRA_KARGS}" "${CONTAINER_IMAGE}" "${ADD_POLKIT}" "${LIVESYS_REPO}"
 
         # Fix iso file permisions
         sudo chown $(id -u):$(id -g) ./output.iso

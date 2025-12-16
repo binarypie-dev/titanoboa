@@ -200,7 +200,7 @@ rootfs-include-polkit polkit="1":
     install -D -m 0644 {{ git_root }}/src/polkit-1/rules.d/*.rules -t {{ rootfs }}/etc/polkit-1/rules.d
 
 # Install Livesys Scripts
-rootfs-install-livesys-scripts livesys="1":
+rootfs-install-livesys-scripts livesys="1" livesys_repo="":
     #!/usr/bin/env bash
     {{ _ci_grouping }}
     {{ if livesys == "0" { 'exit 0' } else { '' } }}
@@ -208,6 +208,7 @@ rootfs-install-livesys-scripts livesys="1":
     set -euo pipefail
     CMD='set -xeuo pipefail
     dnf="$({ which dnf5 || which dnf; } 2>/dev/null)"
+    {{ if livesys_repo != "" { '$dnf install -y dnf-plugins-core && $dnf copr enable -y ' + livesys_repo } else { '' } }}
     $dnf install -y livesys-scripts
 
     # Determine desktop environment. Must match one of /usr/libexec/livesys/sessions.d/livesys-{desktop_env}
@@ -215,12 +216,13 @@ rootfs-install-livesys-scripts livesys="1":
     _session_file="$(find /usr/share/wayland-sessions/ /usr/share/xsessions \
         -maxdepth 1 -type f -not -name '*gamescope*.desktop' -and -name '*.desktop' -printf '%P' -quit)"
     case $_session_file in
-        budgie*) desktop_env=budgie ;;
-        cosmic*) desktop_env=cosmic ;;
-        gnome*)  desktop_env=gnome  ;;
-        plasma*) desktop_env=kde    ;;
-        sway*)   desktop_env=sway   ;;
-        xfce*)   desktop_env=xfce   ;;
+        budgie*)   desktop_env=budgie   ;;
+        cosmic*)   desktop_env=cosmic   ;;
+        gnome*)    desktop_env=gnome    ;;
+        hyprland*) desktop_env=hyprland ;;
+        plasma*)   desktop_env=kde      ;;
+        sway*)     desktop_env=sway     ;;
+        xfce*)     desktop_env=xfce     ;;
         *) echo "\
            {{ style('error') }}ERROR[rootfs-install-livesys-scripts]{{ NORMAL }}\
            : No Livesys Environment Found"; exit 1 ;;
@@ -426,9 +428,9 @@ iso:
 # TODO update this recipe parameters. Make it actually usable
 [no-exit-message]
 [doc('Build a live-iso')]
-@build image=default_image livesys="1" flatpaks_file="src/flatpaks.example.txt" compression="squashfs" extra_kargs="NONE" container_image=image polkit="1": \
+@build image=default_image livesys="1" flatpaks_file="src/flatpaks.example.txt" compression="squashfs" extra_kargs="NONE" container_image=image polkit="1" livesys_repo="": \
     checkroot \
-    (show-config image livesys flatpaks_file compression extra_kargs container_image polkit) \
+    (show-config image livesys flatpaks_file compression extra_kargs container_image polkit livesys_repo) \
     clean \
     init-work \
     (rootfs image) \
@@ -436,7 +438,7 @@ iso:
     initramfs \
     (rootfs-include-flatpaks flatpaks_file) \
     (rootfs-include-polkit polkit) \
-    (rootfs-install-livesys-scripts livesys) \
+    (rootfs-install-livesys-scripts livesys livesys_repo) \
     (rootfs-include-container container_image image) \
     (hook-post-rootfs HOOK_post_rootfs) \
     rootfs-clean-sysroot \
@@ -448,7 +450,7 @@ iso:
     mv ./output.iso {{ justfile_dir() }} &>/dev/null
 
 
-@show-config image livesys flatpaks_file compression extra_kargs container_image polkit:
+@show-config image livesys flatpaks_file compression extra_kargs container_image polkit livesys_repo:
     echo "Using the following configuration:"
     echo "{{ style('warning') }}################################################################################{{ NORMAL }}"
     echo "PODMAN             := {{ PODMAN }}"
@@ -461,6 +463,7 @@ iso:
     echo "HOOK_pre_initramfs := {{ if HOOK_pre_initramfs =~ '(^$|^(?i)\bnone\b$)' { '' } else { canonicalize(HOOK_pre_initramfs) } }}"
     echo "image              := {{ image }}"
     echo "livesys            := {{ livesys }}"
+    echo "livesys_repo       := {{ livesys_repo }}"
     echo "flatpaks_file      := {{ if flatpaks_file =~ '(^$|^(?i)\bnone\b$)' { '' } else { canonicalize(flatpaks_file) } }}"
     echo "compression        := {{ compression }}"
     echo "extra_kargs        := {{ extra_kargs }}"
